@@ -40,7 +40,11 @@ const upload = multer({ storage, limits: { fileSize: 45 * 1024 * 1024 } });
 
 app.use(express.json());
 // Serve static files from 'public' and root directory
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 app.use(express.static(__dirname));
 
 // Direct route to guarantee index.html always loads
