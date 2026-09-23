@@ -39,7 +39,23 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 45 * 1024 * 1024 } });
 
 app.use(express.json());
+// Serve static files from 'public' and root directory
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
+
+// Direct route to guarantee index.html always loads
+app.get('*', (req, res) => {
+    const publicPath = path.join(__dirname, 'public', 'index.html');
+    const rootPath = path.join(__dirname, 'index.html');
+
+    if (fs.existsSync(publicPath)) {
+        res.sendFile(publicPath);
+    } else if (fs.existsSync(rootPath)) {
+        res.sendFile(rootPath);
+    } else {
+        res.status(404).send("Error: index.html was not found in your repository. Please make sure index.html is uploaded to GitHub.");
+    }
+});
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Zero-dependency Open Graph Link Preview Generator
