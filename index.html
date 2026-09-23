@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WhatsApp Web</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #111b21; height: 100vh; display: flex; justify-content: center; align-items: center; }
+
+        .app-wrapper { width: 100%; height: 100%; max-width: 1600px; display: flex; justify-content: center; align-items: center; position: relative; }
+        .chat-container { width: 100%; height: 100%; max-width: 1100px; display: flex; flex-direction: column; background-color: #efeae2; position: relative; overflow: hidden; box-shadow: 0 6px 18px rgba(11,20,26,.05); }
+
+        .chat-body {
+            flex: 1; overflow-y: auto; padding: 20px 7%; display: flex; flex-direction: column; gap: 4px;
+            background-color: #efeae2;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15 20c2 0 4-2 4-4s-2-4-4-4-4 2-4 4 2 4 4 4zm60 40c3 0 5-2 5-5s-2-5-5-5-5 2-5 5 2 5 5 5zm-30-20c2 0 4-2 4-4s-2-4-4-4-4 2-4 4 2 4 4 4zm-20 40c2.5 0 4.5-2 4.5-4.5s-2-4.5-4.5-4.5-4.5 2-4.5 4.5 2 4.5 4.5 4.5zm55-35c2 0 3.5-1.5 3.5-3.5s-1.5-3.5-3.5-3.5-3.5 1.5-3.5 3.5 1.5 3.5 3.5 3.5z' fill='%23c9c3b8' fill-opacity='0.25' fill-rule='evenodd'/%3E%3C/svg%3E");
+        }
+
+        .chat-header { height: 60px; background-color: #f0f2f5; display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid rgba(11,20,26,.08); z-index: 20; }
+        .header-left { display: flex; align-items: center; gap: 14px; cursor: pointer; flex: 1; overflow: hidden; }
+        .avatar-wrap { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: #dfe5e7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .avatar-img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar-initial { color: #54656f; font-weight: bold; font-size: 16px; }
+        .room-details { display: flex; flex-direction: column; overflow: hidden; }
+        .room-name { font-size: 16px; font-weight: 500; color: #111b21; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .room-status { font-size: 13px; color: #667781; }
+
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .wa-icon-btn { background: none; border: none; font-size: 18px; color: #54656f; cursor: pointer; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .wa-icon-btn:hover { background-color: rgba(11,20,26,.05); }
+
+        .enc-notice { align-self: center; background: #ffeecd; color: #54656f; font-size: 12px; padding: 6px 12px; border-radius: 7.5px; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); margin: 6px 0 10px; text-align: center; max-width: 85%; line-height: 16px; }
+        .system-pill { align-self: center; background: rgba(255,255,255,0.92); color: #54656f; font-size: 12.5px; padding: 5px 12px; border-radius: 7.5px; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); margin: 4px 0; text-align: center; }
+
+        .message { max-width: 68%; padding: 6px 9px; border-radius: 7.5px; font-size: 14.2px; line-height: 19px; position: relative; word-wrap: break-word; }
+        .incoming { align-self: flex-start; background: #ffffff; border-top-left-radius: 0; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); }
+        .outgoing { align-self: flex-end; background: #d9fdd3; border-top-right-radius: 0; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); }
+        
+        .sender-tag { font-size: 12.8px; font-weight: 500; margin-bottom: 2px; color: #1f7cff; display: flex; align-items: center; gap: 4px; }
+        .admin-tag { color: #21C963 !important; }
+        .badge { display: inline-flex; align-items: center; justify-content: center; background: #21C963; color: white; border-radius: 50%; width: 13px; height: 13px; font-size: 9px; }
+        
+        .meta { float: right; margin-left: 8px; margin-top: 4px; font-size: 11px; color: #667781; display: flex; align-items: center; gap: 3px; }
+        .ticks { color: #53bdeb; font-size: 13px; font-weight: bold; }
+        .media-content { max-width: 100%; border-radius: 6px; margin: 3px 0; display: block; max-height: 320px; object-fit: contain; }
+
+        /* WhatsApp Rich Link Preview Card */
+        .link-preview-card {
+            display: flex;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.04);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 6px;
+            text-decoration: none;
+            color: inherit;
+            border-left: 3px solid #21C963;
+        }
+        .preview-img { width: 100%; max-height: 180px; object-fit: cover; display: block; }
+        .preview-content { padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+        .preview-domain { font-size: 11px; text-transform: uppercase; color: #667781; letter-spacing: 0.3px; }
+        .preview-title { font-size: 13.5px; font-weight: 600; color: #111b21; line-height: 17px; }
+        .preview-desc { font-size: 12px; color: #667781; line-height: 15px; margin-top: 2px; }
+        .chat-link { color: #027eb5; text-decoration: underline; word-break: break-all; }
+
+        .voice-bubble { display: flex; align-items: center; gap: 10px; padding: 4px 0; min-width: 220px; }
+        .voice-avatar { width: 36px; height: 36px; border-radius: 50%; background: #21C963; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; flex-shrink: 0; }
+        .voice-player { flex: 1; }
+        .voice-player audio { width: 100%; height: 32px; filter: hue-rotate(90deg); }
+
+        .chat-footer { min-height: 62px; background-color: #f0f2f5; padding: 5px 12px; display: flex; align-items: center; gap: 8px; z-index: 20; }
+        .input-bar { flex: 1; height: 42px; border: none; border-radius: 8px; padding: 9px 14px; font-size: 15px; outline: none; background: #ffffff; color: #111b21; }
+        .wa-circle-btn { width: 42px; height: 42px; border-radius: 50%; background: #21C963; color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; flex-shrink: 0; transition: background 0.2s; }
+        .wa-circle-btn:hover { background: #1eb85a; }
+
+        .recording-box { flex: 1; display: none; align-items: center; justify-content: space-between; background: white; height: 42px; border-radius: 8px; padding: 0 16px; }
+        .rec-timer { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; color: #ea0038; }
+        .rec-dot { width: 9px; height: 9px; border-radius: 50%; background: #ea0038; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* Themed Landing Page (#21C963) */
+        #invite-gate { position: absolute; inset: 0; background: #efeae2; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+        .gate-card { background: white; width: 100%; max-width: 440px; border-radius: 14px; padding: 36px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 18px rgba(0,0,0,0.08); border-top: 5px solid #21C963; }
+        .gate-avatar { width: 90px; height: 90px; border-radius: 50%; background: #21C963; color: white; font-size: 34px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; font-weight: bold; overflow: hidden; box-shadow: 0 3px 8px rgba(33, 201, 99, 0.25); }
+        .gate-tag { color: #21C963; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+        .gate-title { font-size: 22px; font-weight: 600; color: #111b21; margin-bottom: 14px; word-break: break-word; }
+        .gate-desc { font-size: 14px; color: #54656f; line-height: 20px; margin-bottom: 22px; }
+        .gate-input { width: 100%; height: 48px; border: 1.5px solid #d1d7db; border-radius: 8px; padding: 0 14px; font-size: 16px; outline: none; margin-bottom: 16px; }
+        .gate-input:focus { border-color: #21C963; box-shadow: 0 0 0 1px #21C963; }
+        .gate-btn { width: 100%; height: 48px; background: #21C963; color: white; border: none; border-radius: 24px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 6px rgba(33, 201, 99, 0.3); }
+        .gate-btn:hover { background: #1eb85a; }
+
+        #admin-drawer { position: absolute; right: 0; top: 0; width: 340px; height: 100%; background: white; box-shadow: -2px 0 6px rgba(0,0,0,0.15); z-index: 150; display: none; flex-direction: column; }
+        .drawer-header { height: 60px; background: #21C963; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-weight: 600; }
+        .drawer-body { flex: 1; overflow-y: auto; padding: 10px; }
+        .user-card { border-bottom: 1px solid #e9edef; padding: 12px 6px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+        .user-phone { color: #21C963; font-weight: bold; }
+        .card-actions { display: flex; gap: 6px; margin-top: 4px; }
+        .btn-card { border: none; padding: 5px 9px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11.5px; }
+        .btn-kick { background: #fee2e2; color: #dc2626; }
+        .btn-drop-call { background: #ffedd5; color: #c2410c; }
+
+        #profile-modal { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 250; }
+        .modal-card { background: white; width: 90%; max-width: 380px; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+        #call-banner { position: absolute; top: 72px; left: 50%; transform: translateX(-50%); background: #111b21; color: white; border-radius: 30px; padding: 10px 22px; display: none; align-items: center; gap: 14px; z-index: 100; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+        .call-accept { background: #21C963; color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        .call-reject { background: #ea0038; color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="app-wrapper">
+        <div id="invite-gate">
+            <div class="gate-card">
+                <div class="gate-avatar" id="gate-avatar-box">WA</div>
+                <div class="gate-tag">WhatsApp Group Invite</div>
+                <h2 class="gate-title" id="gate-room-name">Loading Group...</h2>
+                <p class="gate-desc">To join this conversation, enter your active WhatsApp phone number below.</p>
+                <input type="tel" id="gate-phone-input" class="gate-input" placeholder="e.g. +1 555 123 4567">
+                <button class="gate-btn" onclick="submitGatePass()">Join Chat</button>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div id="call-banner">
+                <span id="call-title">📞 Group Voice Call</span>
+                <button class="call-accept" id="btn-accept-call" onclick="acceptCall()">Join</button>
+                <button class="call-reject" id="btn-hangup-call" onclick="leaveOrRejectCall()">Hang Up</button>
+            </div>
+
+            <div class="chat-header">
+                <div class="header-left" onclick="handleHeaderClick()">
+                    <div class="avatar-wrap" id="header-avatar-wrap">
+                        <span class="avatar-initial" id="header-avatar-initial">WA</span>
+                    </div>
+                    <div class="room-details">
+                        <span class="room-name" id="room-name-display">Online WA</span>
+                        <span class="room-status" id="header-status">tap here for group info</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button class="wa-icon-btn" id="admin-call-btn" style="display:none; color:#21C963;" onclick="startCall()" title="Start Group Call">📞</button>
+                    <button class="wa-icon-btn" id="admin-drawer-btn" style="display:none;" onclick="toggleAdminDrawer()" title="Members (Admin)">👥</button>
+                    <button class="wa-icon-btn" title="Search">🔍</button>
+                    <button class="wa-icon-btn" title="Options">⋮</button>
+                </div>
+            </div>
+
+            <div class="chat-body" id="chat-box">
+                <div class="enc-notice">
+                    🔒 Messages and calls are end-to-end encrypted. No one outside of this chat can read or listen to them.
+                </div>
+            </div>
+
+            <div class="chat-footer">
+                <input type="file" id="file-input" style="display: none;" accept="image/*,video/*">
+                <button class="wa-icon-btn" onclick="document.getElementById('file-input').click()" title="Attach">📎</button>
+
+                <input type="text" id="message-input" class="input-bar" placeholder="Type a message" oninput="handleTyping(this.value)" onkeydown="if(event.key === 'Enter') sendTextMessage()">
+
+                <div class="recording-box" id="recording-box">
+                    <div class="rec-timer">
+                        <div class="rec-dot"></div>
+                        <span id="rec-timer-text">0:00</span>
+                    </div>
+                    <button style="background:none; border:none; cursor:pointer; font-size:18px;" onclick="cancelRecording()">🗑️</button>
+                </div>
+
+                <button class="wa-circle-btn" id="action-btn" onclick="handleActionClick()">🎤</button>
+            </div>
+
+            <div id="admin-drawer">
+                <div class="drawer-header">
+                    <span>Group Members</span>
+                    <button style="background:none; border:none; color:white; font-size:20px; cursor:pointer;" onclick="toggleAdminDrawer()">✕</button>
+                </div>
+                <div class="drawer-body" id="user-list-container"></div>
+            </div>
+
+            <div id="profile-modal">
+                <div class="modal-card">
+                    <h3 style="color:#21C963;">Edit Group Profile</h3>
+                    <input type="text" id="edit-room-name" class="gate-input" placeholder="Group Name">
+                    <label style="font-size:12px; color:#667781;">Upload Group Icon:</label>
+                    <input type="file" id="edit-room-avatar" accept="image/*">
+                    <div style="display:flex; justify-content:flex-end; gap:8px;">
+                        <button onclick="closeProfileModal()" style="padding:8px 12px; border:none; background:#eee; border-radius:6px; cursor:pointer;">Cancel</button>
+                        <button onclick="saveRoomProfile()" style="padding:8px 14px; border:none; background:#21C963; color:white; border-radius:6px; cursor:pointer;">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="audio-streams"></div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const adminKey = urlParams.get('adminKey');
+        const isAdminSession = !!adminKey;
+
+        let socket = null;
+        let myUsername = "";
+        let isAdmin = false;
+
+        let activeCallId = null;
+        let userDeclinedCallId = null;
+        let localStream = null;
+        let peerConnections = {};
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordTimer = null;
+        let recordSecs = 0;
+        let isRecording = false;
+
+        async function fetchLiveRoomInfo() {
+            try {
+                const res = await fetch('/api/room-info');
+                const data = await res.json();
+                applyRoomProfile(data);
+            } catch(e) {}
+        }
+
+        window.onload = () => {
+            fetchLiveRoomInfo();
+
+            const savedPhone = localStorage.getItem('wa_user_phone');
+            if (isAdminSession || savedPhone) {
+                document.getElementById('invite-gate').style.display = 'none';
+                initSocketConnection(savedPhone || "Admin Master");
+            }
+        };
+
+        function submitGatePass() {
+            const phone = document.getElementById('gate-phone-input').value.trim();
+            if (phone.length < 7) {
+                alert('Please enter a valid WhatsApp phone number.');
+                return;
+            }
+            localStorage.setItem('wa_user_phone', phone);
+            document.getElementById('invite-gate').style.display = 'none';
+            initSocketConnection(phone);
+        }
+
+        function initSocketConnection(phoneNumber) {
+            socket = io({
+                query: { token, adminKey, phone: phoneNumber }
+            });
+
+            socket.on('init', (data) => {
+                myUsername = data.username;
+                isAdmin = data.isAdmin;
+                applyRoomProfile(data.roomConfig);
+
+                if (isAdmin) {
+                    document.getElementById('admin-call-btn').style.display = 'flex';
+                    document.getElementById('admin-drawer-btn').style.display = 'flex';
+                    document.getElementById('header-status').innerText = "tap to edit group info";
+                }
+
+                const chatBox = document.getElementById('chat-box');
+                data.history.forEach(appendMessage);
+                scrollToBottom();
+
+                if (data.activeCall && userDeclinedCallId !== data.activeCall.callId) {
+                    activeCallId = data.activeCall.callId;
+                    showCallBanner("📞 Active Group Call in Progress", true);
+                }
+            });
+
+            socket.on('room_profile_updated', applyRoomProfile);
+            socket.on('new_message', (msg) => { appendMessage(msg); scrollToBottom(); });
+            socket.on('error_message', (txt) => alert(txt));
+            socket.on('force_disconnect', (data) => { alert(data.reason); location.reload(); });
+
+            socket.on('user_list_update', (users) => {
+                const container = document.getElementById('user-list-container');
+                container.innerHTML = '';
+                users.forEach(u => {
+                    if (u.username === myUsername) return;
+                    const card = document.createElement('div');
+                    card.className = 'user-card';
+
+                    let dropCallBtn = '';
+                    if (u.inCall) {
+                        dropCallBtn = `<button class="btn-card btn-drop-call" onclick="dropUserFromCall('${u.socketId}')">Drop from Call</button>`;
+                    }
+
+                    card.innerHTML = `
+                        <div><strong>${u.username}</strong> ${u.isAdmin ? '👑 (Admin)' : ''} ${u.inCall ? '<span style="color:#21C963; font-weight:bold;">[In Call 🎙️]</span>' : ''}</div>
+                        <div class="user-phone">📱 ${u.phoneNumber}</div>
+                        <div style="color:#667781;">IP: ${u.ip} | ${u.device}</div>
+                        <div class="card-actions">
+                            ${dropCallBtn}
+                            <button class="btn-card btn-kick" onclick="socket.emit('admin_kick_user', { targetSocketId: '${u.socketId}' })">Kick & Ban</button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            });
+
+            socket.on('incoming_group_call', (data) => {
+                activeCallId = data.callId;
+                if (userDeclinedCallId === activeCallId) return;
+                showCallBanner("📞 Incoming Group Call from Admin", true);
+            });
+
+            socket.on('call_joined', async ({ callId, isInitiator, existingParticipants }) => {
+                activeCallId = callId;
+                showCallBanner("🟢 Group Call Active", false);
+
+                for (const peerSocketId of existingParticipants) {
+                    initiatePeerOffer(peerSocketId);
+                }
+            });
+
+            socket.on('user_joined_call', async ({ socketId }) => {
+                createPeerConnection(socketId);
+            });
+
+            socket.on('webrtc_signal', async ({ sender, signal }) => {
+                let pc = peerConnections[sender];
+                if (!pc) pc = createPeerConnection(sender);
+
+                if (signal.type === 'offer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    socket.emit('webrtc_signal', { target: sender, signal: answer });
+                } else if (signal.type === 'answer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                } else if (signal.candidate) {
+                    await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                }
+            });
+
+            socket.on('user_left_call', ({ socketId }) => {
+                if (peerConnections[socketId]) {
+                    peerConnections[socketId].close();
+                    delete peerConnections[socketId];
+                }
+                const audioEl = document.getElementById(`audio-${socketId}`);
+                if (audioEl) audioEl.remove();
+            });
+
+            socket.on('call_dropped_by_admin', (data) => {
+                cleanupAudio();
+                userDeclinedCallId = activeCallId;
+                document.getElementById('call-banner').style.display = 'none';
+                alert(data.reason);
+            });
+
+            socket.on('call_ended', () => {
+                cleanupAudio();
+                activeCallId = null;
+                document.getElementById('call-banner').style.display = 'none';
+                alert('The group voice call has ended.');
+            });
+        }
+
+        async function startCall() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                showCallBanner("🟢 Starting group voice call...", false);
+                socket.emit('admin_start_call');
+            } catch (err) {
+                alert("Microphone permission required.");
+            }
+        }
+
+        async function acceptCall() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                socket.emit('join_call');
+                showCallBanner("🟢 In Group Call", false);
+            } catch (err) {
+                alert("Microphone permission denied.");
+            }
+        }
+
+        function leaveOrRejectCall() {
+            if (activeCallId) userDeclinedCallId = activeCallId;
+            cleanupAudio();
+            socket.emit('leave_call');
+            document.getElementById('call-banner').style.display = 'none';
+        }
+
+        function cleanupAudio() {
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
+            for (const id in peerConnections) peerConnections[id].close();
+            peerConnections = {};
+            document.getElementById('audio-streams').innerHTML = '';
+        }
+
+        function dropUserFromCall(socketId) {
+            if (confirm("Remove this participant from the voice call?")) {
+                socket.emit('admin_drop_user_from_call', { targetSocketId: socketId });
+            }
+        }
+
+        function showCallBanner(title, canJoin) {
+            document.getElementById('call-title').innerText = title;
+            document.getElementById('btn-accept-call').style.display = canJoin ? 'inline-block' : 'none';
+            document.getElementById('btn-hangup-call').innerText = canJoin ? 'Decline' : 'Hang Up';
+            document.getElementById('call-banner').style.display = 'flex';
+        }
+
+        async function initiatePeerOffer(targetSocketId) {
+            const pc = createPeerConnection(targetSocketId);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('webrtc_signal', { target: targetSocketId, signal: offer });
+        }
+
+        function createPeerConnection(targetSocketId) {
+            if (peerConnections[targetSocketId]) return peerConnections[targetSocketId];
+
+            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            peerConnections[targetSocketId] = pc;
+
+            if (localStream) {
+                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            }
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('webrtc_signal', { target: targetSocketId, signal: { candidate: event.candidate } });
+                }
+            };
+
+            pc.ontrack = (event) => {
+                let audio = document.getElementById(`audio-${targetSocketId}`);
+                if (!audio) {
+                    audio = document.createElement('audio');
+                    audio.id = `audio-${targetSocketId}`;
+                    audio.autoplay = true;
+                    document.getElementById('audio-streams').appendChild(audio);
+                }
+                audio.srcObject = event.streams[0];
+            };
+
+            return pc;
+        }
+
+        function applyRoomProfile(config) {
+            document.getElementById('room-name-display').innerText = config.name;
+            document.getElementById('gate-room-name').innerText = config.name;
+            document.title = `${config.name} - WhatsApp`;
+
+            const avatarWrap = document.getElementById('header-avatar-wrap');
+            const gateAvatarBox = document.getElementById('gate-avatar-box');
+            if (config.avatarUrl) {
+                avatarWrap.innerHTML = `<img src="${config.avatarUrl}" class="avatar-img" />`;
+                gateAvatarBox.innerHTML = `<img src="${config.avatarUrl}" style="width:100%; height:100%; object-fit:cover;" />`;
+            } else {
+                const letter = config.name.charAt(0).toUpperCase();
+                avatarWrap.innerHTML = `<span class="avatar-initial">${letter}</span>`;
+                gateAvatarBox.innerText = letter;
+            }
+        }
+
+        function formatMessageText(text) {
+            const escaped = escapeHTML(text);
+            const urlRegex = /(https?:\/\/[^\s]+)/gi;
+            return escaped.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-link">${url}</a>`);
+        }
+
+        function appendMessage(msg) {
+            const chatBox = document.getElementById('chat-box');
+
+            if (msg.type === 'system') {
+                const pill = document.createElement('div');
+                pill.className = 'system-pill';
+                pill.innerText = msg.text;
+                chatBox.appendChild(pill);
+                return;
+            }
+
+            const isSelf = msg.sender === myUsername;
+            const node = document.createElement('div');
+            node.className = `message ${isSelf ? 'outgoing' : 'incoming'}`;
+
+            let adminBadge = msg.isAdmin ? `<span class="badge">✓</span>` : '';
+            let senderColor = msg.isAdmin ? 'admin-tag' : '';
+
+            // Rich Link Preview Card (WhatsApp Style)
+            let linkPreviewMarkup = '';
+            if (msg.linkPreview) {
+                const lp = msg.linkPreview;
+                linkPreviewMarkup = `
+                    <a href="${lp.url}" target="_blank" rel="noopener noreferrer" class="link-preview-card">
+                        ${lp.image ? `<img src="${lp.image}" class="preview-img" onerror="this.style.display='none'" />` : ''}
+                        <div class="preview-content">
+                            <span class="preview-domain">${escapeHTML(lp.domain)}</span>
+                            <span class="preview-title">${escapeHTML(lp.title)}</span>
+                            ${lp.description ? `<span class="preview-desc">${escapeHTML(lp.description)}</span>` : ''}
+                        </div>
+                    </a>
+                `;
+            }
+
+            let mediaMarkup = '';
+            if (msg.media) {
+                if (msg.media.type === 'video') {
+                    mediaMarkup = `<video class="media-content" controls src="${msg.media.url}"></video>`;
+                } else if (msg.media.type === 'image') {
+                    mediaMarkup = `<img class="media-content" src="${msg.media.url}" />`;
+                } else if (msg.media.type === 'audio') {
+                    mediaMarkup = `
+                        <div class="voice-bubble">
+                            <div class="voice-avatar">🎤</div>
+                            <div class="voice-player">
+                                <audio controls src="${msg.media.url}"></audio>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            node.innerHTML = `
+                ${!isSelf ? `<div class="sender-tag ${senderColor}">${msg.sender} ${adminBadge}</div>` : ''}
+                ${linkPreviewMarkup}
+                ${mediaMarkup}
+                ${msg.text ? `<div>${formatMessageText(msg.text)}</div>` : ''}
+                <div class="meta">
+                    <span>${msg.time}</span>
+                    ${isSelf ? `<span class="ticks">✓✓</span>` : ''}
+                </div>
+            `;
+            chatBox.appendChild(node);
+        }
+
+        function handleTyping(val) {
+            document.getElementById('action-btn').innerText = val.trim().length > 0 ? "➤" : "🎤";
+        }
+
+        function handleActionClick() {
+            const btn = document.getElementById('action-btn');
+            if (btn.innerText === "➤") sendTextMessage();
+            else if (btn.innerText === "🎤") startVoiceRecording();
+            else if (btn.innerText === "✓") stopAndSendVoiceRecording();
+        }
+
+        function sendTextMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+            socket.emit('send_message', { text });
+            input.value = '';
+            handleTyping('');
+        }
+
+        async function startVoiceRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+                mediaRecorder.start();
+
+                isRecording = true;
+                recordSecs = 0;
+                document.getElementById('message-input').style.display = 'none';
+                document.getElementById('recording-box').style.display = 'flex';
+                document.getElementById('action-btn').innerText = "✓";
+
+                recordTimer = setInterval(() => {
+                    recordSecs++;
+                    const m = Math.floor(recordSecs / 60);
+                    const s = recordSecs % 60;
+                    document.getElementById('rec-timer-text').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+                }, 1000);
+            } catch(e) {
+                alert('Microphone access denied.');
+            }
+        }
+
+        function cancelRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.onstop = null;
+                mediaRecorder.stop();
+                resetRecUI();
+            }
+        }
+
+        function stopAndSendVoiceRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const formData = new FormData();
+                    formData.append('media', audioBlob, `voice_${Date.now()}.webm`);
+                    try {
+                        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                        const data = await res.json();
+                        if (data.url) socket.emit('send_message', { media: data });
+                    } catch(err) {
+                        alert('Error uploading voice note.');
+                    }
+                };
+                mediaRecorder.stop();
+                resetRecUI();
+            }
+        }
+
+        function resetRecUI() {
+            clearInterval(recordTimer);
+            isRecording = false;
+            document.getElementById('recording-box').style.display = 'none';
+            document.getElementById('message-input').style.display = 'block';
+            document.getElementById('rec-timer-text').innerText = '0:00';
+            handleTyping(document.getElementById('message-input').value);
+        }
+
+        document.getElementById('file-input').addEventListener('change', async function() {
+            const file = this.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('media', file);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.url) socket.emit('send_message', { media: data });
+            this.value = '';
+        });
+
+        function handleHeaderClick() {
+            if (isAdmin) {
+                document.getElementById('edit-room-name').value = document.getElementById('room-name-display').innerText;
+                document.getElementById('profile-modal').style.display = 'flex';
+            }
+        }
+        function closeProfileModal() { document.getElementById('profile-modal').style.display = 'none'; }
+        async function saveRoomProfile() {
+            const newName = document.getElementById('edit-room-name').value.trim();
+            const avatarFile = document.getElementById('edit-room-avatar').files[0];
+            let avatarUrl = undefined;
+            if (avatarFile) {
+                const formData = new FormData();
+                formData.append('media', avatarFile);
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const json = await res.json();
+                avatarUrl = json.url;
+            }
+            socket.emit('update_room_profile', { name: newName, avatarUrl });
+            closeProfileModal();
+        }
+
+        function toggleAdminDrawer() {
+            if (!isAdmin) return;
+            const d = document.getElementById('admin-drawer');
+            d.style.display = d.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function scrollToBottom() {
+            const b = document.getElementById('chat-box');
+            b.scrollTop = b.scrollHeight;
+        }
+
+        function escapeHTML(s) {
+            return s ? s.replace(/[&<>'"]/g, t => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[t] || t)) : '';
+        }
+    </script>
+</body>
+</html>
