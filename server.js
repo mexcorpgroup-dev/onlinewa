@@ -16,14 +16,15 @@ const ADMIN_PASSWORD = "SuperSecretAdminKey123";
 
 let roomConfig = {
     name: "Online WA Official Group",
-    avatarUrl: ""
+    avatarUrl: "",
+    onlyAdminsCanMessage: false // Admin Group Lock Toggle
 };
 
 let activeTokens = new Set(["vip-pass-1", "vip-pass-2", "meta-vip-1"]);
 let bannedIPs = new Set();
 let chatHistory = [];
 let registeredUsersByPhone = new Map();
-let connectedUsers = new Map();
+let connectedUsers = new Map(); // socketId -> userData
 let currentCall = null;
 
 const uploadDir = path.join(__dirname, 'uploads');
@@ -39,30 +40,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 45 * 1024 * 1024 } });
 
 app.use(express.json());
-// Serve static files from 'public' and root directory
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
-
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-app.use(express.static(__dirname));
-
-// Direct route to guarantee index.html always loads
-app.get('*', (req, res) => {
-    const publicPath = path.join(__dirname, 'public', 'index.html');
-    const rootPath = path.join(__dirname, 'index.html');
-
-    if (fs.existsSync(publicPath)) {
-        res.sendFile(publicPath);
-    } else if (fs.existsSync(rootPath)) {
-        res.sendFile(rootPath);
-    } else {
-        res.status(404).send("Error: index.html was not found in your repository. Please make sure index.html is uploaded to GitHub.");
-    }
-});
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Zero-dependency Open Graph Link Preview Generator
+// Link Preview Extractor
 async function extractLinkPreview(text) {
     const urlMatch = text.match(/(https?:\/\/[^\s]+)/i);
     if (!urlMatch) return null;
@@ -70,7 +52,7 @@ async function extractLinkPreview(text) {
 
     try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
+        const timeout = setTimeout(() => controller.abort(), 3500);
         const res = await fetch(targetUrl, {
             signal: controller.signal,
             headers: { 'User-Agent': 'WhatsApp/2.21.12.21 A' }
@@ -97,7 +79,6 @@ async function extractLinkPreview(text) {
         }
 
         const domain = new URL(targetUrl).hostname.replace('www.', '');
-
         if (!title && !description && !image) return null;
 
         return {
@@ -112,9 +93,7 @@ async function extractLinkPreview(text) {
     }
 }
 
-app.get('/api/room-info', (req, res) => {
-    res.json(roomConfig);
-});
+app.get('/api/room-info', (req, res) => res.json(roomConfig));
 
 app.post('/api/upload', upload.single('media'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
@@ -124,6 +103,16 @@ app.post('/api/upload', upload.single('media'), (req, res) => {
     res.json({ url: `/uploads/${req.file.filename}`, type });
 });
 
+// Fallback to guarantee index.html always renders
+app.get('*', (req, res) => {
+    const publicPath = path.join(__dirname, 'public', 'index.html');
+    const rootPath = path.join(__dirname, 'index.html');
+    if (fs.existsSync(publicPath)) res.sendFile(publicPath);
+    else if (fs.existsSync(rootPath)) res.sendFile(rootPath);
+    else res.status(404).send("index.html not found.");
+});
+
+// Authenticate Connections
 io.use((socket, next) => {
     const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
     if (bannedIPs.has(clientIp)) return next(new Error('BANNED_IP'));
@@ -131,6 +120,7 @@ io.use((socket, next) => {
     const token = socket.handshake.query.token || "vip-pass-1";
     const adminKey = socket.handshake.query.adminKey;
     const phone = (socket.handshake.query.phone || "").trim();
+    const customUsername = (socket.handshake.query.customUsername || "").trim();
     const isAdmin = (adminKey === ADMIN_PASSWORD);
 
     if (!isAdmin && (token && !activeTokens.has(token))) {
@@ -151,7 +141,7 @@ io.use((socket, next) => {
             socket.username = registeredUsersByPhone.get(phone).username;
         } else {
             isFirstTime = true;
-            socket.username = `User_${Math.floor(100000 + Math.random() * 900000)}`;
+            socket.username = customUsername || `User_${Math.floor(100000 + Math.random() * 900000)}`;
             registeredUsersByPhone.set(phone, {
                 username: socket.username,
                 firstJoinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -180,7 +170,8 @@ io.on('connection', (socket) => {
         username: socket.username,
         isAdmin: socket.isAdmin,
         history: chatHistory,
-        activeCall: currentCall ? { callId: currentCall.callId, participants: Array.from(currentCall.participants) } : null
+        activeCall: currentCall ? { callId: currentCall.callId, participants: Array.from(currentCall.participants) } : null,
+        onlineUsernames: Array.from(connectedUsers.values()).map(u => u.username)
     });
 
     if (socket.isFirstTime) {
@@ -194,8 +185,36 @@ io.on('connection', (socket) => {
         io.emit('new_message', joinMsg);
     }
 
+    // Broadcast updated online presence
+    io.emit('online_presence_update', Array.from(connectedUsers.values()).map(u => u.username));
     broadcastUserListToAdmins();
 
+    // Admin Group Lock / Only Admins Can Send Messages
+    socket.on('admin_toggle_group_lock', () => {
+        if (!socket.isAdmin) return;
+        roomConfig.onlyAdminsCanMessage = !roomConfig.onlyAdminsCanMessage;
+        io.emit('group_lock_updated', roomConfig.onlyAdminsCanMessage);
+
+        const notice = {
+            id: Date.now(),
+            type: 'system',
+            text: roomConfig.onlyAdminsCanMessage 
+                ? `Admin changed group settings to allow only admins to send messages.` 
+                : `Admin opened group settings to allow all participants to send messages.`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        chatHistory.push(notice);
+        io.emit('new_message', notice);
+    });
+
+    // Admin Deletes a Message
+    socket.on('admin_delete_message', ({ messageId }) => {
+        if (!socket.isAdmin) return;
+        chatHistory = chatHistory.filter(m => m.id !== messageId);
+        io.emit('message_deleted', { messageId });
+    });
+
+    // Admin Group Customization
     socket.on('update_room_profile', (data) => {
         if (!socket.isAdmin) return;
         if (data.name) roomConfig.name = data.name.trim();
@@ -213,7 +232,13 @@ io.on('connection', (socket) => {
         io.emit('new_message', notice);
     });
 
+    // Chat Messaging
     socket.on('send_message', async (data) => {
+        // Enforce Group Lock
+        if (roomConfig.onlyAdminsCanMessage && !socket.isAdmin) {
+            return socket.emit('error_message', 'Only admins can send messages to this group right now.');
+        }
+
         const text = data.text ? data.text.trim() : "";
         const media = data.media || null;
 
@@ -224,7 +249,6 @@ io.on('connection', (socket) => {
 
         if (!text && !media) return;
 
-        // Generate Rich Link Preview for Admin Links
         let linkPreview = null;
         if (socket.isAdmin && text && urlRegex.test(text)) {
             linkPreview = await extractLinkPreview(text);
@@ -233,6 +257,7 @@ io.on('connection', (socket) => {
         const messagePayload = {
             id: Date.now(),
             sender: socket.username,
+            senderSocketId: socket.id,
             isAdmin: socket.isAdmin,
             text,
             media,
@@ -241,8 +266,21 @@ io.on('connection', (socket) => {
         };
 
         chatHistory.push(messagePayload);
-        if (chatHistory.length > 150) chatHistory.shift();
+        if (chatHistory.length > 200) chatHistory.shift();
         io.emit('new_message', messagePayload);
+    });
+
+    // Admin 1-on-1 Private DM
+    socket.on('send_dm', ({ targetSocketId, text }) => {
+        if (!socket.isAdmin) return;
+        const target = io.sockets.sockets.get(targetSocketId);
+        if (target) {
+            target.emit('private_dm', {
+                from: 'Admin',
+                text,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+        }
     });
 
     socket.on('admin_kick_user', ({ targetSocketId }) => {
@@ -291,9 +329,7 @@ io.on('connection', (socket) => {
         broadcastUserListToAdmins();
     });
 
-    socket.on('leave_call', () => {
-        removeSocketFromCall(socket.id);
-    });
+    socket.on('leave_call', () => removeSocketFromCall(socket.id));
 
     socket.on('admin_drop_user_from_call', ({ targetSocketId }) => {
         if (!socket.isAdmin || !currentCall) return;
@@ -335,6 +371,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         removeSocketFromCall(socket.id);
         connectedUsers.delete(socket.id);
+        io.emit('online_presence_update', Array.from(connectedUsers.values()).map(u => u.username));
         broadcastUserListToAdmins();
     });
 
