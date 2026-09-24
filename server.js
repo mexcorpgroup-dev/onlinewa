@@ -9,7 +9,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { 
     maxHttpBufferSize: 50 * 1024 * 1024,
-    cors: { origin: "*" }
+    cors: { origin: "*" },
+    transports: ['websocket', 'polling']
 });
 
 const ADMIN_PASSWORD = "SuperSecretAdminKey123";
@@ -17,14 +18,13 @@ const ADMIN_PASSWORD = "SuperSecretAdminKey123";
 let roomConfig = {
     name: "Online WA Official Group",
     avatarUrl: "",
-    onlyAdminsCanMessage: false // Admin Group Lock Toggle
+    onlyAdminsCanMessage: false
 };
 
-let activeTokens = new Set(["vip-pass-1", "vip-pass-2", "meta-vip-1"]);
 let bannedIPs = new Set();
 let chatHistory = [];
 let registeredUsersByPhone = new Map();
-let connectedUsers = new Map(); // socketId -> userData
+let connectedUsers = new Map();
 let currentCall = null;
 
 const uploadDir = path.join(__dirname, 'uploads');
@@ -103,7 +103,6 @@ app.post('/api/upload', upload.single('media'), (req, res) => {
     res.json({ url: `/uploads/${req.file.filename}`, type });
 });
 
-// Fallback to guarantee index.html always renders
 app.get('*', (req, res) => {
     const publicPath = path.join(__dirname, 'public', 'index.html');
     const rootPath = path.join(__dirname, 'index.html');
@@ -112,37 +111,32 @@ app.get('*', (req, res) => {
     else res.status(404).send("index.html not found.");
 });
 
-// Authenticate Connections
+// Socket Authentication Middleware (Bulletproof: Never blocks valid visitors)
 io.use((socket, next) => {
     const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
     if (bannedIPs.has(clientIp)) return next(new Error('BANNED_IP'));
 
-    const token = socket.handshake.query.token || "vip-pass-1";
     const adminKey = socket.handshake.query.adminKey;
     const phone = (socket.handshake.query.phone || "").trim();
     const customUsername = (socket.handshake.query.customUsername || "").trim();
     const isAdmin = (adminKey === ADMIN_PASSWORD);
 
-    if (!isAdmin && (token && !activeTokens.has(token))) {
-        return next(new Error('INVALID_TOKEN'));
-    }
-
-    socket.token = token;
     socket.isAdmin = isAdmin;
     socket.clientIp = clientIp;
-    socket.phoneNumber = isAdmin ? "Master Admin" : phone;
+    socket.phoneNumber = isAdmin ? "Master Admin" : (phone || "Anonymous Visitor");
     socket.userAgent = socket.handshake.headers['user-agent'] || 'Unknown Device';
 
     let isFirstTime = false;
     if (isAdmin) {
         socket.username = 'Admin';
     } else {
-        if (registeredUsersByPhone.has(phone)) {
-            socket.username = registeredUsersByPhone.get(phone).username;
+        const identifier = phone || socket.id;
+        if (registeredUsersByPhone.has(identifier)) {
+            socket.username = registeredUsersByPhone.get(identifier).username;
         } else {
             isFirstTime = true;
             socket.username = customUsername || `User_${Math.floor(100000 + Math.random() * 900000)}`;
-            registeredUsersByPhone.set(phone, {
+            registeredUsersByPhone.set(identifier, {
                 username: socket.username,
                 firstJoinedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
@@ -165,6 +159,7 @@ io.on('connection', (socket) => {
         inCall: false
     });
 
+    // Send immediate sync to connecting user
     socket.emit('init', {
         roomConfig,
         username: socket.username,
@@ -174,7 +169,7 @@ io.on('connection', (socket) => {
         onlineUsernames: Array.from(connectedUsers.values()).map(u => u.username)
     });
 
-    if (socket.isFirstTime) {
+    if (socket.isFirstTime && !socket.isAdmin) {
         const joinMsg = {
             id: Date.now(),
             type: 'system',
@@ -185,11 +180,10 @@ io.on('connection', (socket) => {
         io.emit('new_message', joinMsg);
     }
 
-    // Broadcast updated online presence
     io.emit('online_presence_update', Array.from(connectedUsers.values()).map(u => u.username));
     broadcastUserListToAdmins();
 
-    // Admin Group Lock / Only Admins Can Send Messages
+    // Toggle Group Lock
     socket.on('admin_toggle_group_lock', () => {
         if (!socket.isAdmin) return;
         roomConfig.onlyAdminsCanMessage = !roomConfig.onlyAdminsCanMessage;
@@ -207,14 +201,14 @@ io.on('connection', (socket) => {
         io.emit('new_message', notice);
     });
 
-    // Admin Deletes a Message
+    // Admin Delete Message
     socket.on('admin_delete_message', ({ messageId }) => {
         if (!socket.isAdmin) return;
         chatHistory = chatHistory.filter(m => m.id !== messageId);
         io.emit('message_deleted', { messageId });
     });
 
-    // Admin Group Customization
+    // Group Info Update
     socket.on('update_room_profile', (data) => {
         if (!socket.isAdmin) return;
         if (data.name) roomConfig.name = data.name.trim();
@@ -232,9 +226,8 @@ io.on('connection', (socket) => {
         io.emit('new_message', notice);
     });
 
-    // Chat Messaging
+    // Send Message (Admins & Users)
     socket.on('send_message', async (data) => {
-        // Enforce Group Lock
         if (roomConfig.onlyAdminsCanMessage && !socket.isAdmin) {
             return socket.emit('error_message', 'Only admins can send messages to this group right now.');
         }
@@ -267,10 +260,12 @@ io.on('connection', (socket) => {
 
         chatHistory.push(messagePayload);
         if (chatHistory.length > 200) chatHistory.shift();
+
+        // Broadcast to EVERY connected user in real time
         io.emit('new_message', messagePayload);
     });
 
-    // Admin 1-on-1 Private DM
+    // 1-on-1 DM
     socket.on('send_dm', ({ targetSocketId, text }) => {
         if (!socket.isAdmin) return;
         const target = io.sockets.sockets.get(targetSocketId);
@@ -293,7 +288,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Voice Calling Engine
+    // Group Calls
     socket.on('admin_start_call', () => {
         if (!socket.isAdmin) return;
         currentCall = {
