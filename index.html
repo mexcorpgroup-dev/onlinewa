@@ -38,17 +38,14 @@
         .incoming { align-self: flex-start; background: #ffffff; border-top-left-radius: 0; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); }
         .outgoing { align-self: flex-end; background: #d9fdd3; border-top-right-radius: 0; box-shadow: 0 1px 0.5px rgba(11,20,26,.13); }
         
-        /* Sender Tag & Online Presence Green Dot */
         .sender-tag { font-size: 12.8px; font-weight: 500; margin-bottom: 2px; color: #1f7cff; display: flex; align-items: center; gap: 5px; cursor: pointer; }
         .admin-tag { color: #00a884 !important; }
         
-        /* CORRECTION 6: Blue Checkmark */
         .badge-blue { display: inline-flex; align-items: center; justify-content: center; background: #2094fa; color: white; border-radius: 50%; width: 14px; height: 14px; font-size: 9px; font-weight: bold; }
         
         .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #21C963; display: inline-block; box-shadow: 0 0 3px #21C963; }
         .offline-dot { width: 8px; height: 8px; border-radius: 50%; background: #aebac1; display: inline-block; }
 
-        /* Delete Message Icon for Admin */
         .delete-msg-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: #aebac1; margin-left: 6px; display: none; }
         .message:hover .delete-msg-btn { display: inline; }
         .delete-msg-btn:hover { color: #ea0038; }
@@ -57,7 +54,6 @@
         .ticks { color: #53bdeb; font-size: 13px; font-weight: bold; }
         .media-content { max-width: 100%; border-radius: 6px; margin: 3px 0; display: block; max-height: 320px; object-fit: contain; }
 
-        /* Link Preview Card */
         .link-preview-card { display: flex; flex-direction: column; background: rgba(0, 0, 0, 0.04); border-radius: 6px; overflow: hidden; margin-bottom: 6px; text-decoration: none; color: inherit; border-left: 3px solid #21C963; }
         .preview-img { width: 100%; max-height: 180px; object-fit: cover; display: block; }
         .preview-content { padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
@@ -71,12 +67,10 @@
         .voice-player { flex: 1; }
         .voice-player audio { width: 100%; height: 32px; filter: hue-rotate(90deg); }
 
-        /* Footer & Lock Notice */
         .chat-footer { min-height: 62px; background-color: #f0f2f5; padding: 5px 12px; display: flex; align-items: center; gap: 8px; z-index: 20; position: relative; }
         .input-bar { flex: 1; height: 42px; border: none; border-radius: 8px; padding: 9px 14px; font-size: 15px; outline: none; background: #ffffff; color: #111b21; }
         .wa-circle-btn { width: 42px; height: 42px; border-radius: 50%; background: #21C963; color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; flex-shrink: 0; }
 
-        /* CORRECTION 2: Group Lock Notice for Members */
         #group-locked-banner { display: none; width: 100%; text-align: center; color: #667781; font-size: 13.5px; padding: 12px; background: #f0f2f5; font-weight: 500; }
 
         .recording-box { flex: 1; display: none; align-items: center; justify-content: space-between; background: white; height: 42px; border-radius: 8px; padding: 0 16px; }
@@ -95,7 +89,6 @@
         .gate-input:focus { border-color: #21C963; }
         .gate-btn { width: 100%; height: 46px; background: #21C963; color: white; border: none; border-radius: 23px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 6px rgba(33, 201, 99, 0.3); }
 
-        /* Admin Members Drawer */
         #admin-drawer { position: absolute; right: 0; top: 0; width: 340px; height: 100%; background: white; box-shadow: -2px 0 6px rgba(0,0,0,0.15); z-index: 150; display: none; flex-direction: column; }
         .drawer-header { height: 60px; background: #21C963; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-weight: 600; }
         .drawer-body { flex: 1; overflow-y: auto; padding: 10px; }
@@ -106,14 +99,12 @@
         .btn-drop-call { background: #ffedd5; color: #c2410c; }
         .btn-dm { background: #e0f2fe; color: #0284c7; }
 
-        /* Direct Message Modal */
         #dm-modal { position: absolute; bottom: 75px; right: 20px; width: 310px; height: 360px; background: white; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); display: none; flex-direction: column; z-index: 180; overflow: hidden; border: 1px solid #d1d7db; }
         .dm-header { background: #21C963; color: white; padding: 10px 14px; font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
         .dm-body { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
         .dm-footer { padding: 8px; display: flex; gap: 6px; border-top: 1px solid #eee; }
         .dm-footer input { flex: 1; border: 1px solid #ccc; padding: 6px 10px; border-radius: 6px; font-size: 13px; outline: none; }
 
-        /* Floating Call Banner */
         #call-banner { position: absolute; top: 72px; left: 50%; transform: translateX(-50%); background: #111b21; color: white; border-radius: 30px; padding: 10px 22px; display: none; align-items: center; gap: 14px; z-index: 100; box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
         .call-accept { background: #21C963; color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: bold; }
         .call-reject { background: #ea0038; color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: bold; }
@@ -124,31 +115,25 @@
 </head>
 <body>
     <div class="app-wrapper">
-        <!-- THEMED INVITE GATE (#21C963) -->
         <div id="invite-gate">
             <div class="gate-card">
                 <div class="gate-avatar" id="gate-avatar-box">WA</div>
                 <div class="gate-tag">WhatsApp Group Invite</div>
                 <h2 class="gate-title" id="gate-room-name">Loading Group...</h2>
                 <p class="gate-desc">Enter your details to join the conversation.</p>
-                
-                <!-- CORRECTION 4: Custom Username at Sign-Up -->
                 <input type="text" id="gate-username-input" class="gate-input" placeholder="Display Name (e.g. David)">
                 <input type="tel" id="gate-phone-input" class="gate-input" placeholder="WhatsApp Phone (+1 555 123 4567)">
-                
                 <button class="gate-btn" onclick="submitGatePass()">Join Chat</button>
             </div>
         </div>
 
         <div class="chat-container">
-            <!-- Incoming Call Banner -->
             <div id="call-banner">
                 <span id="call-title">📞 Group Voice Call</span>
                 <button class="call-accept" id="btn-accept-call" onclick="acceptCall()">Join</button>
                 <button class="call-reject" id="btn-hangup-call" onclick="leaveOrRejectCall()">Hang Up</button>
             </div>
 
-            <!-- Header -->
             <div class="chat-header">
                 <div class="header-left" onclick="handleHeaderClick()">
                     <div class="avatar-wrap" id="header-avatar-wrap">
@@ -156,11 +141,10 @@
                     </div>
                     <div class="room-details">
                         <span class="room-name" id="room-name-display">Online WA</span>
-                        <span class="room-status" id="header-status">tap here for group info</span>
+                        <span class="room-status" id="header-status">Connecting...</span>
                     </div>
                 </div>
                 <div class="header-right">
-                    <!-- CORRECTION 2: Admin Lock/Unlock Button -->
                     <button class="wa-icon-btn" id="admin-lock-btn" style="display:none;" onclick="toggleGroupLock()" title="Lock/Unlock Chat">🔓</button>
                     <button class="wa-icon-btn" id="admin-call-btn" style="display:none; color:#21C963;" onclick="startCall()" title="Start Group Call">📞</button>
                     <button class="wa-icon-btn" id="admin-drawer-btn" style="display:none;" onclick="toggleAdminDrawer()" title="Members (Admin)">👥</button>
@@ -169,14 +153,12 @@
                 </div>
             </div>
 
-            <!-- Chat Body -->
             <div class="chat-body" id="chat-box">
                 <div class="enc-notice">
                     🔒 Messages and calls are end-to-end encrypted. No one outside of this chat can read or listen to them.
                 </div>
             </div>
 
-            <!-- Footer / Inputs -->
             <div class="chat-footer">
                 <div id="group-locked-banner">🔒 Only admins can send messages</div>
 
@@ -198,7 +180,6 @@
                 </div>
             </div>
 
-            <!-- Admin Drawer -->
             <div id="admin-drawer">
                 <div class="drawer-header">
                     <span>Group Members</span>
@@ -207,7 +188,6 @@
                 <div class="drawer-body" id="user-list-container"></div>
             </div>
 
-            <!-- CORRECTION 5: Admin 1-on-1 DM Modal -->
             <div id="dm-modal">
                 <div class="dm-header">
                     <span id="dm-target-name">Chatting Privately</span>
@@ -220,7 +200,6 @@
                 </div>
             </div>
 
-            <!-- Profile Edit Modal -->
             <div id="profile-modal">
                 <div class="modal-card">
                     <h3 style="color:#21C963;">Edit Group Profile</h3>
@@ -240,7 +219,9 @@
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        let token = urlParams.get('token');
+        if (!token || token === 'null' || token === 'undefined') token = 'vip-pass-1';
+        
         const adminKey = urlParams.get('adminKey');
         const isAdminSession = !!adminKey;
 
@@ -275,7 +256,6 @@
         window.onload = () => {
             fetchLiveRoomInfo();
 
-            // Request Web Notification permission on page load
             if ("Notification" in window && Notification.permission !== "granted") {
                 Notification.requestPermission();
             }
@@ -304,7 +284,21 @@
 
         function initSocketConnection(phoneNumber, customUsername) {
             socket = io({
+                transports: ['websocket', 'polling'],
                 query: { token, adminKey, phone: phoneNumber, customUsername }
+            });
+
+            socket.on('connect', () => {
+                document.getElementById('header-status').innerText = isAdmin ? "tap to edit group info" : "tap here for group info";
+            });
+
+            socket.on('disconnect', () => {
+                document.getElementById('header-status').innerText = "Connecting...";
+            });
+
+            socket.on('connect_error', (err) => {
+                console.error("Connection error:", err);
+                document.getElementById('header-status').innerText = "Reconnecting...";
             });
 
             socket.on('init', (data) => {
@@ -317,7 +311,6 @@
                     document.getElementById('admin-call-btn').style.display = 'flex';
                     document.getElementById('admin-drawer-btn').style.display = 'flex';
                     document.getElementById('admin-lock-btn').style.display = 'flex';
-                    document.getElementById('header-status').innerText = "tap to edit group info";
                 }
 
                 updateGroupLockUI(data.roomConfig.onlyAdminsCanMessage);
@@ -341,26 +334,19 @@
             socket.on('error_message', (txt) => alert(txt));
             socket.on('force_disconnect', (data) => { alert(data.reason); location.reload(); });
 
-            // Online Presence Update
             socket.on('online_presence_update', (usernames) => {
                 onlineUsers = new Set(usernames);
                 document.querySelectorAll('.presence-indicator').forEach(el => {
                     const uName = el.getAttribute('data-username');
-                    if (onlineUsers.has(uName)) {
-                        el.className = 'presence-indicator online-dot';
-                    } else {
-                        el.className = 'presence-indicator offline-dot';
-                    }
+                    el.className = onlineUsers.has(uName) ? 'presence-indicator online-dot' : 'presence-indicator offline-dot';
                 });
             });
 
-            // Message Deletion
             socket.on('message_deleted', ({ messageId }) => {
                 const el = document.getElementById(`msg-${messageId}`);
                 if (el) el.remove();
             });
 
-            // Admin Member Directory
             socket.on('user_list_update', (users) => {
                 const container = document.getElementById('user-list-container');
                 container.innerHTML = '';
@@ -391,7 +377,6 @@
                 });
             });
 
-            // Incoming Audio Call (with Background Ring & Vibration)
             socket.on('incoming_group_call', (data) => {
                 activeCallId = data.callId;
                 if (userDeclinedCallId === activeCallId) return;
@@ -453,7 +438,6 @@
             });
         }
 
-        // CORRECTION 2: Group Lock UI Management
         function toggleGroupLock() {
             socket.emit('admin_toggle_group_lock');
         }
@@ -473,14 +457,12 @@
             }
         }
 
-        // CORRECTION 1: Delete Message
         function deleteMessage(messageId) {
             if (confirm("Delete this message for everyone?")) {
                 socket.emit('admin_delete_message', { messageId });
             }
         }
 
-        // CORRECTION 5: Direct Messaging
         function openDM(targetSocketId, username) {
             selectedDMSocketId = targetSocketId;
             document.getElementById('dm-target-name').innerText = `DM: ${username}`;
@@ -507,17 +489,14 @@
             input.value = '';
         }
 
-        // CORRECTION 3: Background Audio Loop & System Alert
         function startBackgroundRinging() {
-            // Trigger Phone Vibration if mobile
             if ("vibrate" in navigator) {
                 navigator.vibrate([200, 100, 200, 100, 400]);
             }
 
-            // System Notification alert
             if ("Notification" in window && Notification.permission === "granted") {
                 new Notification("📞 Incoming WhatsApp Group Call", {
-                    body: "Admin is calling the group room. Tap here to join.",
+                    body: "Admin is calling the group. Tap to join.",
                     icon: "https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg",
                     requireInteraction: true
                 });
@@ -674,18 +653,13 @@
             node.className = `message ${isSelf ? 'outgoing' : 'incoming'}`;
             node.id = `msg-${msg.id}`;
 
-            // CORRECTION 6: Blue verified badge for admin
             let adminBadge = msg.isAdmin ? `<span class="badge-blue">✓</span>` : '';
             let senderColor = msg.isAdmin ? 'admin-tag' : '';
 
-            // CORRECTION 4: Green dot next to active sender
             let isSenderOnline = onlineUsers.has(msg.sender);
             let presenceDot = !msg.isAdmin ? `<span class="presence-indicator ${isSenderOnline ? 'online-dot' : 'offline-dot'}" data-username="${escapeHTML(msg.sender)}"></span>` : '';
 
-            // CORRECTION 1: Admin Delete button on messages
             let deleteBtn = isAdmin ? `<button class="delete-msg-btn" onclick="deleteMessage(${msg.id})" title="Delete message">🗑️</button>` : '';
-
-            // CORRECTION 5: Click user profile name to DM
             let senderClickAction = (isAdmin && !msg.isAdmin) ? `onclick="openDM('${msg.senderSocketId}', '${escapeHTML(msg.sender)}')"` : '';
 
             let linkPreviewMarkup = '';
@@ -753,6 +727,10 @@
             const input = document.getElementById('message-input');
             const text = input.value.trim();
             if (!text) return;
+            if (!socket || !socket.connected) {
+                alert("You are currently disconnected. Please wait a moment while it reconnects.");
+                return;
+            }
             socket.emit('send_message', { text });
             input.value = '';
             handleTyping('');
